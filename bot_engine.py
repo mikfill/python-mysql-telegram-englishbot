@@ -51,6 +51,10 @@ def bot_set_commands(bot_url: str):
         "description": "Send your current id and time"
     },
     {
+        "command": "time",
+        "description": "Send your id and time"
+    },
+    {
         "command": "help",
         "description": "Print help message to user"
     },
@@ -111,9 +115,9 @@ def command_handler(bot_url: str, command: str, chat_id: int):
         print("Bot send start message")
 
     if command == '/hello':
-        hello_message = f"Hello user with id {chat_id}\n\
-        Current Time = {datetime.now().strftime('%H:%M:%S')}"
-        send_message(bot_url, chat_id, hello_message)
+        hello_msg = f"Hello user!\nYour id:{chat_id}"
+        
+        send_message(bot_url, chat_id, hello_msg)
         print("Bot say hello")
 
     if command == '/help':
@@ -133,6 +137,11 @@ def command_handler(bot_url: str, command: str, chat_id: int):
         # Set max generation sentences
         print("Set max sentences")
 
+    if command == '/time':
+        c_time = datetime.now().strftime('%H:%M:%S')
+        time_msg = f"👋: {chat_id}\n⏰:{c_time}"
+        send_message(bot_url, chat_id, time_msg)
+        print("Bot send time")
 
 def send_message(bot_url: str, chat_id: int, msg: str):
     """Send message to user with chat id
