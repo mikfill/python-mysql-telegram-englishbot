@@ -4,7 +4,7 @@ from terminal_colors import CEND, CYELLOW, CGREEN, CBLUE, CBEIGE
 
 
 def log_incoming_message(word: str, chat_id: int) -> None:
-    """Logging into terminal incoming message from user
+    """Logging into terminal incoming word from user
     """
     print(CBLUE + f'{"=" * get_terminal_size().columns}' + CEND)
     print(
@@ -15,7 +15,7 @@ def log_incoming_message(word: str, chat_id: int) -> None:
 
 
 def log_outgoing_message(msg: str, chat_id: int) -> None:
-    """Logging into terminal outgoing message from user
+    """Logging into terminal outgoing message with sentences
     """
     print(CBLUE + f'{"=" * get_terminal_size().columns}' + CEND)
     print(

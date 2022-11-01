@@ -3,9 +3,12 @@ from os import getenv
 from datetime import datetime
 from time import sleep
 import requests
-from bot_logs import log_incoming_message, log_outgoing_message
-from sentences import load_sentences_local
-from sentences import load_sentences_remote
+from bot_logs import log_incoming_message,\
+    log_outgoing_message
+from sentences import load_sentences_local,\
+    load_sentences_remote
+from db_users_client import get_user_by_id,\
+    get_user_level, update_user_level, add_new_user
 
 
 def get_bot_info(bot_url: str) -> json:
@@ -37,35 +40,35 @@ def get_query_url(token_env_name: str) -> str:
 
 
 def bot_set_commands(bot_url: str):
-    """Set menu with avaliable comands for bot 
+    """Set menu with avaliable comands for bot
     returns http status code
     """
     url = f'{bot_url}/setMyCommands?commands='
-    commands=[
-    {
-        "command": "start",
-        "description": "Say hello from bot"
-    },
-    {
-        "command": "hello",
-        "description": "Send your current id and time"
-    },
-    {
-        "command": "time",
-        "description": "Send your id and time"
-    },
-    {
-        "command": "help",
-        "description": "Print help message to user"
-    },
-    {
-        "command": "getlvl",
-        "description": "Print current level of user"
-    },
-    {
-        "command": "setlvl",
-        "description": "Set level to user"
-    }
+    commands = [
+        {
+            "command": "start",
+            "description": "say hello from bot"
+        },
+        {
+            "command": "hello",
+            "description": "send your current id and time"
+        },
+        {
+            "command": "time",
+            "description": "send your id and time"
+        },
+        {
+            "command": "help",
+            "description": "print help message to user"
+        },
+        {
+            "command": "getlvl",
+            "description": "print current level of user"
+        },
+        {
+            "command": "setlvl",
+            "description": "set level to user"
+        }
     ]
     commands = json.dumps(commands)
     url = url + str(commands)
@@ -80,7 +83,15 @@ def get_bot_updates(bot_url: str) -> dict:
     response = requests.get(url, timeout=5)
     updates = response.json()
 
-    if updates['ok'] == True and updates['result']:
+    if len(updates['result']) == 100:
+        offset = updates['result'][-1]['update_id']
+        url = f"{bot_url}/getUpdates?offset={offset}"
+        response = requests.get(url, timeout=5)
+        url = f"{bot_url}/getUpdates"
+        response = requests.get(url, timeout=5)
+        updates = response.json()
+
+    if updates['result']:
         return updates
     else:
         return {'ok': False, 'result': []}
@@ -91,17 +102,46 @@ def parse_message(update) -> tuple:
     and check if update is command
     """
     is_command = False
+
     message_id = update['result'][-1]['message']['message_id']
     chat_id = update['result'][-1]['message']['chat'].get('id')
     txt = update['result'][-1]['message'].get('text')
 
-    if update['result'][-1]['message'].get('entities'):
+    entities_prev = update['result'][-2]['message'].get('entities')
+    entities_last = update['result'][-1]['message'].get('entities')
+
+    if entities_prev or entities_last:
         type_of_entity = update['result'][-1]['message']['entities'][-1].get(
             'type')
         if type_of_entity == 'bot_command':
             is_command = True
 
     return is_command, message_id, chat_id, txt
+
+
+def parse_lvl_from_message(update) -> int:
+    """Handling level number from last update message text
+    """
+    level = None
+    level_name = ''
+    txt = update['result'][-1]['message'].get('text')
+
+    correct_lvls = [x + 1 for x in range(6)]
+    levels_dict = {
+        1: ['1', 'elementary', 'a1'],
+        2: ['2', 'pre-intermediate', 'a2'],
+        3: ['3', 'intermediate', 'b1'],
+        4: ['4', 'upper-inermediate', 'b2'],
+        5: ['5', 'advanced', 'c1'],
+        6: ['6', 'fluent', 'c2']
+    }
+
+    for lvl in correct_lvls:
+        if txt.lower() in levels_dict[lvl]:
+            level = lvl
+            level_name = levels_dict.get(lvl)[1].capitalize()
+
+    return level, level_name
 
 
 def command_handler(bot_url: str, command: str, chat_id: int):
@@ -112,36 +152,69 @@ def command_handler(bot_url: str, command: str, chat_id: int):
     if command == '/start':
         start_message = "Hello from be dev english bot!\nToday we learn some english words"
         send_message(bot_url, chat_id, start_message)
+
+        if not get_user_by_id(chat_id):
+            add_new_user(chat_id)
+
         print("Bot send start message")
 
     if command == '/hello':
         hello_msg = f"Hello user!\nYour id:{chat_id}"
-        
+
         send_message(bot_url, chat_id, hello_msg)
+
         print("Bot say hello")
 
     if command == '/help':
-        # Call help
 
         print("Print text with instructions")
 
     if command == '/getlvl':
-        # Change lvl for user
-        print("Command to show lvl user")
+        user_lvl = get_user_level(chat_id)
+        lvl_message = f"Your lvl is: {user_lvl}"
+        send_message(bot_url, chat_id, lvl_message)
+
+        print(lvl_message)
 
     if command == '/setlvl':
-        # Set lvl for user
-        print("Command to change lvl user")
+        msg = "1 -> Elementary -> A1\n\n"\
+            + "2 -> Pre-intermediate -> A2\n\n"\
+            + "3 -> Intermediate -> B1\n\n"\
+            + "4 -> Upper-inermediate -> B2\n\n"\
+            + "5 -> Advanced -> C1\n\n"\
+            + "6 -> Fluent -> C2"
+        
+        send_message(bot_url, chat_id, msg)
+        is_correct_lvl = False
+        while (not is_correct_lvl):
+            updates = get_bot_updates(bot_url)
+
+            try:
+                lvl, lvl_name = parse_lvl_from_message(updates)
+
+                if lvl:
+                    msg = f"Your level changed to {lvl_name}"
+                    update_user_level(chat_id, lvl)
+                    send_message(bot_url, chat_id, msg)
+                    is_correct_lvl = True
+                    print(f"User: {chat_id}\n{msg}")
+                else:
+                    print("Wait for input level from user")
+                    sleep(2)
+            except:
+                print("Error in set level command")
 
     if command == '/max':
-        # Set max generation sentences
-        print("Set max sentences")
+
+        print("Set max sentences command")
 
     if command == '/time':
         c_time = datetime.now().strftime('%H:%M:%S')
         time_msg = f"👋: {chat_id}\n⏰:{c_time}"
         send_message(bot_url, chat_id, time_msg)
+
         print("Bot send time")
+
 
 def send_message(bot_url: str, chat_id: int, msg: str):
     """Send message to user with chat id
@@ -149,7 +222,8 @@ def send_message(bot_url: str, chat_id: int, msg: str):
     """
 
     url = f"{bot_url}/sendMessage"
-    response = requests.post(url, json={'chat_id': chat_id, 'text': msg}, timeout=5)
+    response = requests.post(
+        url, json={'chat_id': chat_id, 'text': msg}, timeout=5)
 
     return response.status_code
 
@@ -161,24 +235,26 @@ def bot_echo_polling(bot_url: str, polling_interval=1):
     """
 
     last_message_id = 0
-    last_message_text = ''
 
     while True:
         bot_updates = get_bot_updates(bot_url)
-        try:
-            is_command, message_id, chat_id, txt = parse_message(bot_updates)
 
-            if message_id > last_message_id and txt != last_message_text and is_command == False:
+        try:
+            message_id = bot_updates['result'][-1]['message']['message_id']
+            txt = bot_updates['result'][-1]['message']['text']
+            chat_id = bot_updates['result'][-1]['message']['chat']['id']
+
+            if message_id > last_message_id:
                 last_message_id = message_id
-                last_message_text = txt
                 send_message(bot_url, chat_id, txt)
                 print(f'Send echo {txt} to user')
             else:
                 print("Polling...")
                 sleep(polling_interval)
-        except:
+        except Exception as e:
             sleep(5)
-            print('Dont have updates, send something to bot!')
+            print(e)
+            print("Dont have updates, send something to bot!")
 
 
 def get_sentences_from_local(word: str) -> str:
@@ -203,7 +279,7 @@ def get_sentences_from_local(word: str) -> str:
         result_msg += matched_sentences[0]
     if len(matched_sentences) > 1:
         for match in matched_sentences:
-            result_msg += match + "\n...\n"
+            result_msg += match + "\n\n"
 
     return result_msg
 
@@ -231,7 +307,7 @@ def get_sentences_from_remote(word: str, amount=3) -> str:
         result_msg += matched_sentences[0]
     if len(matched_sentences) > 1:
         for match in matched_sentences:
-            result_msg += match + "\n...\n"
+            result_msg += match + "\n\n"
 
     return result_msg
 

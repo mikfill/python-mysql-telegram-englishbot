@@ -3,3 +3,7 @@ venv-bot
 .vscode
 .env
 .pytest_cache
+bot_test.py
+db_config.py
+requirements_dev.txt
+

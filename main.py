@@ -1,8 +1,8 @@
-import english_bot1
+import english_bot
 
 
 def main():
-    english_bot1.run_bot()
+    english_bot.run_bot()
 
 
 if __name__ == "__main__":
