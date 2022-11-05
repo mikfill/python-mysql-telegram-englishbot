@@ -183,7 +183,6 @@ def command_handler(bot_url: str, command: str, chat_id: int):
             + "4 -> Upper-inermediate -> B2\n\n"\
             + "5 -> Advanced -> C1\n\n"\
             + "6 -> Fluent -> C2"
-        
         send_message(bot_url, chat_id, msg)
         is_correct_lvl = False
         while (not is_correct_lvl):
@@ -332,21 +331,7 @@ def bot_send_sentences(bot_url: str, polling_interval=1, remote=False):
                 last_message_id = message_id
                 command_handler(bot_url, word, chat_id)
 
-            if not remote:
-                if message_id > last_message_id and word != last_message_text and not is_command:
-                    last_message_id = message_id
-                    last_message_text = word
-                    log_incoming_message(word, chat_id)
-
-                    result_msg = get_sentences_from_local(word)
-                    send_message(bot_url, chat_id, result_msg)
-
-                    log_outgoing_message(result_msg, chat_id)
-
-                else:
-                    print("Polling...")
-                    sleep(polling_interval)
-            else:
+            if remote:
                 if message_id > last_message_id and word != last_message_text and not is_command:
                     max_number_of_sentences = 5
                     last_message_id = message_id
@@ -355,6 +340,21 @@ def bot_send_sentences(bot_url: str, polling_interval=1, remote=False):
 
                     result_msg = get_sentences_from_remote(
                         word, max_number_of_sentences)
+                    send_message(bot_url, chat_id, result_msg)
+
+                    log_outgoing_message(result_msg, chat_id)
+
+                else:
+                    print("Polling...")
+                    sleep(polling_interval)
+
+            if not remote:
+                if message_id > last_message_id and word != last_message_text and not is_command:
+                    last_message_id = message_id
+                    last_message_text = word
+                    log_incoming_message(word, chat_id)
+
+                    result_msg = get_sentences_from_local(word)
                     send_message(bot_url, chat_id, result_msg)
 
                     log_outgoing_message(result_msg, chat_id)

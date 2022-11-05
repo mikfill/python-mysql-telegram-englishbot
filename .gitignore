@@ -1,9 +1,12 @@
 __pycache__
+.pytest_cache
 venv-bot
 test
 .vscode
 .env
-.pytest_cache
 db_config.py
 requirements_dev.txt
-
+docker-compose.yml
+Dockerfile
+info.txt
+db_sentences_client.py
